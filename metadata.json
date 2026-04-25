@@ -1,0 +1,7 @@
+{
+  "name": "Generador de Anuncios con IA",
+  "description": "Aplicación para generar textos de anuncios persuasivos usando Gemini, con gestión de límites de uso diarios.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
+
