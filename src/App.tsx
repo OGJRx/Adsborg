@@ -31,7 +31,48 @@ export default function App() {
   const [showSettings, setShowSettings] = React.useState(false);
   const [showPrivacy, setShowPrivacy] = React.useState(false);
   const [model, setModel] = React.useState(localStorage.getItem('copyflow_model') || 'gemini-2.0-flash');
-  const [systemInstructions, setSystemInstructions] = React.useState(localStorage.getItem('copyflow_instructions') || 'Eres copywriter hispano experto en psicología de ventas. Genera solo Markdown con la estructura exacta. Usa los datos proporcionados. Si precio="Gratis" o "Desde", aplica reciprocidad. Si numérico, contraste perceptual.');
+  const [systemInstructions, setSystemInstructions] = React.useState(localStorage.getItem('copyflow_instructions') || `# ROLE
+Actúa como un Consultor de Marketing de Élite, experto en Psicología del Consumidor, Copywriting de Respuesta Directa y Estrategia de Posicionamiento de Mercado. Tu especialidad es transformar productos o servicios en soluciones irresistibles mediante el uso de ángulos estratégicos avanzados.
+
+# CONTEXTO Y ANÁLISIS PREVIO (Chain of Thought)
+Antes de redactar, realiza un análisis interno (silencioso pero aplicado) sobre:
+1. Intención de Búsqueda (Search Intent): Identifica si el usuario está en una fase de concienciación del problema, comparación de soluciones o decisión de compra.
+2. Relevancia de Palabras Clave: Identifica los términos semánticos y conceptos clave que resuenan con la audiencia para maximizar la relevancia y el SEO psicológico.
+
+# TAREA
+Genera 4 versiones de textos publicitarios, cada una estructurada en torno a un ángulo estratégico único. No te limites a cambiar titulares; cada versión debe representar una Hipótesis de Posicionamiento diferente.
+
+# LOS 4 ÁNGULOS ESTRATÉGICOS A DESPLEGAR
+
+## 1. Variantes del Problema que Resuelves
+- Objetivo: Atacar el problema desde una perspectiva que el usuario no había considerado o profundizar en un síntoma específico.
+- Lógica: No hables de la solución general, habla del dolor específico y agudo que tu producto elimina.
+
+## 2. Aprovechar Vacíos de la Competencia
+- Objetivo: Posicionarte donde los competidores fallan o son genéricos.
+- Lógica: Identifica la frustración común con las soluciones actuales del mercado y presenta tu propuesta como la evolución lógica y necesaria.
+
+## 3. Enfoques Basados en Pruebas Sociales (Social Proof)
+- Objetivo: Utilizar el sesgo de aprobación social para eliminar el riesgo percibido.
+- Lógica: No uses solo testimonios genéricos; construye una narrativa donde el éxito de otros valide la eficiencia de tu hipótesis de posicionamiento.
+
+## 4. Ganchos que Responden Objeciones (Objection Handling)
+- Objetivo: Desarmar las barreras mentales del cliente antes de que las verbalice.
+- Lógica: Identifica la objeción más fuerte (precio, tiempo, escepticismo) y conviértela en el gancho principal de la comunicación.
+
+# REQUERIMIENTOS DE SALIDA PARA CADA VERSIÓN
+Para cada uno de los 4 ángulos, debes entregar:
+
+1. Hipótesis de Posicionamiento: Una explicación estratégica de por qué este enfoque convencerá a la audiencia, qué palanca psicológica está activando y cómo se alinea con la intención de búsqueda.
+2. Propuesta SEO: Lista de palabras clave y conceptos de intención que se han priorizado en esta versión.
+3. Cuerpo del Texto Publicitario: Un texto versátil, creativo y de alto impacto que pueda adaptarse a cualquier plataforma (Ads, Email, Landing Page). Tienes libertad total para estructurar el formato de salida del texto (listas, storytelling, diálogo, etc.) siempre que busque la máxima conversión.
+
+# REGLAS DE ORO
+- Mantén un tono profesional, persuasivo y sofisticado.
+- Evita clichés de marketing genéricos.
+- Asegura que el contenido sea 100% accionable y orientado a resultados.
+- Idioma de respuesta: Español.
+- Entrega el resultado en formato Markdown claro.`);
   const [appVersion, setAppVersion] = React.useState(localStorage.getItem('copyflow_version') || 'v3.0-adgen');
   const [customApiKey, setCustomApiKey] = React.useState(localStorage.getItem('copyflow_apikey') || '');
   const [useMock, setUseMock] = React.useState(localStorage.getItem('copyflow_mock') === 'true');
@@ -107,7 +148,7 @@ Diseñado para quienes buscan excelencia, no promesas vacías.`;
       const apiKey = customApiKey.trim() || (process as any).env.GEMINI_API_KEY;
       if (!apiKey) {
         setFeedback({ text: 'Configura tu API Key en Ajustes', type: 'error' });
-        setTimeout(() => setFeedback(null), 3000);
+        setTimeout(() => setFeedback(null), 5000);
         return;
       }
 
@@ -166,7 +207,7 @@ No añadas texto fuera de la estructura. Emojis moderados.`;
       } else {
         setFeedback({ text: 'Error al generar', type: 'error' });
       }
-      setTimeout(() => setFeedback(null), 3000);
+      setTimeout(() => setFeedback(null), 5000);
     } finally {
       setLoading(false);
     }
@@ -187,7 +228,7 @@ No añadas texto fuera de la estructura. Emojis moderados.`;
       text: type === 'md' ? 'Markdown copiado!' : 'Texto plano copiado!', 
       type: 'success' 
     });
-    setTimeout(() => setFeedback(null), 2000);
+    setTimeout(() => setFeedback(null), 5000);
   };
 
   const resetForm = () => {
@@ -578,7 +619,7 @@ No añadas texto fuera de la estructura. Emojis moderados.`;
                         initial={{ opacity: 0, y: 15, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.9 }}
-                        className={`absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full whitespace-nowrap shadow-2xl flex items-center gap-2 border border-white/10 ${
+                        className={`fixed top-6 right-6 px-4 py-2 rounded-full whitespace-nowrap shadow-2xl flex items-center gap-2 border border-white/10 z-[100] ${
                           feedback.type === 'success' ? 'bg-brand-orange text-white' : 'bg-red-500 text-white'
                         }`}
                       >
