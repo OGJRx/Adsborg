@@ -11,22 +11,25 @@ import {
   LayoutTemplate,
   FileText,
   Type,
-  Settings
+  Settings,
+  ShieldCheck,
+  HelpCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { GoogleGenAI } from "@google/genai";
 
 export default function App() {
-  const [formData, setFormData] = React.useState({ title: '', price: '', description: '' });
+  const [formData, setFormData] = React.useState({ details: '' });
   const [result, setResult] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [credits, setCredits] = React.useState(999);
   const [history, setHistory] = React.useState<string[]>([]);
-  const [copyFeedback, setCopyFeedback] = React.useState<string | null>(null);
+  const [feedback, setFeedback] = React.useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [enabledSections, setEnabledSections] = React.useState({ gancho: true, solucion: true, oferta: true, cta: true });
   
   // Settings
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showPrivacy, setShowPrivacy] = React.useState(false);
   const [model, setModel] = React.useState(localStorage.getItem('copyflow_model') || 'gemini-2.0-flash');
   const [systemInstructions, setSystemInstructions] = React.useState(localStorage.getItem('copyflow_instructions') || 'Eres copywriter hispano experto en psicología de ventas. Genera solo Markdown con la estructura exacta. Usa los datos proporcionados. Si precio="Gratis" o "Desde", aplica reciprocidad. Si numérico, contraste perceptual.');
   const [appVersion, setAppVersion] = React.useState(localStorage.getItem('copyflow_version') || 'v3.0-adgen');
@@ -43,6 +46,8 @@ export default function App() {
   const [showCopyMenu, setShowCopyMenu] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editableResult, setEditableResult] = React.useState('');
+
+  const isConfigured = !!(customApiKey.trim() || (process as any).env.GEMINI_API_KEY);
 
   // Persistence and Daily Reset
   React.useEffect(() => {
@@ -71,45 +76,47 @@ export default function App() {
   }, [credits, history]);
 
   const handleGenerate = async () => {
-    if (!formData.title || !formData.price || loading || credits <= 0) return;
+    if (!formData.details || loading || credits <= 0) return;
     
     setLoading(true);
     try {
       if (useMock) {
         const mockMarkdown = `# 🎯 Ángulo 1: Problema (RUM)
 ## Versión A (Resultado+Rapidez)
-¿Cansado de esperar? Consigue ${formData.title} y transforma tu día en minutos.
+¿Cansado de esperar? Transforma tu día en minutos con nuestra solución profesional.
 ## Versión B (Escasez)
-Solo quedan pocas unidades de ${formData.title}. No dejes pasar esta oportunidad única por ${formData.price}.
+Solo quedan pocas unidades disponibles. No dejes pasar esta oportunidad única.
 ## Versión C (Contraste)
-Otros cobran el doble por la mitad de la calidad. ${formData.title} es la elección inteligente.
+Otros cobran el doble por la mitad de la calidad. Esta es la elección inteligente.
 
 # 🚀 Ángulo 2: Competencia (Contracorriente)
 ## Versión A
-Mientras otros fallan, ${formData.title} cumple lo que promete.
+Mientras otros fallan, nosotros cumplimos lo que prometemos.
 ## Versión B
-La competencia no quiere que sepas esto sobre ${formData.title}.
+La competencia no quiere que sepas esto.
 ## Versión C
 Diseñado para quienes buscan excelencia, no promesas vacías.`;
 
         setResult(mockMarkdown);
         setEditableResult(mockMarkdown);
         setCredits(prev => Math.max(0, prev - 1));
-        setHistory(prev => [formData.title, ...prev].slice(0, 5));
+        setHistory(prev => ['Generación Reciente', ...prev].slice(0, 5));
         return;
       }
 
-      const apiKey = customApiKey.trim() || process.env.GEMINI_API_KEY;
+      const apiKey = customApiKey.trim() || (process as any).env.GEMINI_API_KEY;
       if (!apiKey) {
-        setCopyFeedback('API key no configurada');
-        setTimeout(() => setCopyFeedback(null), 3000);
+        setFeedback({ text: 'Configura tu API Key en Ajustes', type: 'error' });
+        setTimeout(() => setFeedback(null), 3000);
         return;
       }
 
       const ai = new GoogleGenAI({ apiKey });
       const prompt = `
-Producto: Título: ${formData.title}, Precio: ${formData.price}, Descripción: ${formData.description}
+Detalles del Producto/Servicio Proporcionados:
+${formData.details}
 
+Basado en estos detalles, identifica el producto, su valor, precio y beneficios. Luego genera un anuncio publicitario estratégico.
 Genera en Markdown estas 4 secciones con 3 subsecciones cada una (A,B,C):
 
 🎯 Ángulo 1: Problema (RUM)
@@ -132,7 +139,7 @@ Versión A (Precio)
 Versión B (Confianza)
 Versión C (Compromiso)
 
-No añadas texto fuera. Emojis moderados.`;
+No añadas texto fuera de la estructura. Emojis moderados.`;
 
       const response = await ai.models.generateContent({
         model: model,
@@ -141,24 +148,25 @@ No añadas texto fuera. Emojis moderados.`;
           systemInstruction: systemInstructions
         }
       });
-
-      const markdown = response.text || '';
-      if (markdown) {
-        setResult(markdown);
-        setEditableResult(markdown);
+      
+      const responseText = response.text;
+      
+      if (responseText) {
+        setResult(responseText);
+        setEditableResult(responseText);
         setCredits(prev => Math.max(0, prev - 1));
-        setHistory(prev => [formData.title, ...prev].slice(0, 5));
+        setHistory(prev => ['Generación Reciente', ...prev].slice(0, 5));
       }
     } catch (err: any) {
       console.error('Error generating:', err);
       if (err?.message?.includes('429')) {
-        setCopyFeedback('Cuota Gemini excedida');
+        setFeedback({ text: 'Cuota Gemini excedida', type: 'error' });
       } else if (err?.message?.includes('API key not valid')) {
-        setCopyFeedback('API Key inválida');
+        setFeedback({ text: 'API Key inválida', type: 'error' });
       } else {
-        setCopyFeedback('Error al generar');
+        setFeedback({ text: 'Error al generar', type: 'error' });
       }
-      setTimeout(() => setCopyFeedback(null), 3000);
+      setTimeout(() => setFeedback(null), 3000);
     } finally {
       setLoading(false);
     }
@@ -175,14 +183,64 @@ No añadas texto fuera. Emojis moderados.`;
     }
     
     await navigator.clipboard.writeText(text);
-    setCopyFeedback(type === 'md' ? 'Markdown copiado!' : 'Texto plano copiado!');
-    setTimeout(() => setCopyFeedback(null), 2000);
+    setFeedback({ 
+      text: type === 'md' ? 'Markdown copiado!' : 'Texto plano copiado!', 
+      type: 'success' 
+    });
+    setTimeout(() => setFeedback(null), 2000);
   };
 
   const resetForm = () => {
-    setFormData({ title: '', price: '', description: '' });
+    setFormData({ details: '' });
     setResult('');
   };
+
+  if (!isConfigured && !useMock) {
+    return (
+      <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-6 text-brand-cream">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md space-y-8 text-center"
+        >
+          <div className="space-y-2">
+            <div className="inline-block p-3 rounded-2xl bg-brand-orange/10 border border-brand-orange/20 mb-4">
+              <Zap className="w-8 h-8 text-brand-orange" />
+            </div>
+            <h1 className="text-4xl font-black tracking-tighter">ADGEN <span className="text-brand-orange text-lg align-top">PRO</span></h1>
+            <p className="text-brand-cream/60 text-sm">Ingresa tu API Key de Gemini para activar el motor de psicología estratégica.</p>
+          </div>
+
+          <div className="bg-brand-card/50 border border-brand-border p-6 rounded-3xl space-y-4">
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] uppercase font-bold tracking-widest text-brand-orange">Tu Gemini API Key</label>
+              <input 
+                type="password"
+                placeholder="Pega tu token aquí..."
+                value={customApiKey}
+                onChange={(e) => setCustomApiKey(e.target.value)}
+                className="w-full bg-brand-dark border border-brand-border rounded-xl p-4 text-sm focus:border-brand-orange outline-none"
+              />
+              <p className="text-[10px] text-brand-cream/40">Consigue una gratis en <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-brand-orange hover:underline">Google AI Studio</a></p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-brand-orange hover:bg-brand-blue text-brand-dark font-black py-4 rounded-xl transition-all uppercase tracking-widest text-xs"
+            >
+              Conectar y Empezar
+            </button>
+          </div>
+
+          <button 
+            onClick={() => setUseMock(true)}
+            className="text-[10px] uppercase font-bold tracking-[0.2em] text-brand-cream/20 hover:text-brand-cream/60 transition-colors"
+          >
+            O probar modo de simulación
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-8 lg:p-12 max-w-7xl mx-auto flex flex-col gap-8">
@@ -209,6 +267,13 @@ No añadas texto fuera. Emojis moderados.`;
         >
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span className="text-xs font-mono text-brand-cream/60">{appVersion} • Firebase Active</span>
+          <button 
+            onClick={() => setShowPrivacy(true)}
+            className="p-1 hover:text-brand-orange transition-colors"
+            title="Políticas de Privacidad"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
           <button 
             onClick={() => setShowSettings(true)}
             className="p-1 hover:text-brand-orange transition-colors"
@@ -240,40 +305,17 @@ No añadas texto fuera. Emojis moderados.`;
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold tracking-widest text-brand-cream/40">Título (max 60)</label>
-              <input 
-                type="text" 
-                placeholder="Ej. Auriculares Pro-X"
-                value={formData.title}
-                maxLength={60}
-                onChange={e => setFormData({ ...formData, title: e.target.value })}
-                className="w-full bg-brand-dark/50 border border-brand-border rounded-xl p-4 text-sm focus:border-brand-orange outline-none transition-all placeholder:text-brand-cream/20"
+              <label className="text-[10px] uppercase font-bold tracking-widest text-brand-cream/40">Detalles del Producto (Prompt Context)</label>
+              <textarea 
+                placeholder="Pega aquí toda la información del producto. El sistema extraerá el título, precio y beneficios automáticamente para generar los ángulos de venta..."
+                value={formData.details}
+                maxLength={500000}
+                onChange={e => setFormData({ details: e.target.value })}
+                className="w-full bg-brand-dark/50 border border-brand-border rounded-xl p-4 text-sm focus:border-brand-orange outline-none transition-all h-64 resize-none placeholder:text-brand-cream/20 custom-scrollbar"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] uppercase font-bold tracking-widest text-brand-cream/40">Precio (max 20)</label>
-              <input 
-                type="text" 
-                placeholder="Ej. 149.00€"
-                value={formData.price}
-                maxLength={20}
-                onChange={e => setFormData({ ...formData, price: e.target.value })}
-                className="w-full bg-brand-dark/50 border border-brand-border rounded-xl p-4 text-sm focus:border-brand-orange outline-none transition-all placeholder:text-brand-cream/20"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-bold tracking-widest text-brand-cream/40">Descripción (max 500)</label>
-            <textarea 
-              placeholder="Describe las ventajas competitivas..."
-              value={formData.description}
-              maxLength={500}
-              onChange={e => setFormData({ ...formData, description: e.target.value })}
-              className="w-full bg-brand-dark/50 border border-brand-border rounded-xl p-4 text-sm focus:border-brand-orange outline-none transition-all h-32 resize-none placeholder:text-brand-cream/20"
-            />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -292,7 +334,7 @@ No añadas texto fuera. Emojis moderados.`;
 
           <button 
             onClick={handleGenerate}
-            disabled={!formData.title || !formData.price || loading}
+            disabled={!formData.details || loading}
             className={`w-full py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all ${
               loading 
                 ? 'bg-brand-blue/50 text-white cursor-wait' 
@@ -452,6 +494,68 @@ No añadas texto fuera. Emojis moderados.`;
           )}
         </AnimatePresence>
 
+        {/* Privacy Modal */}
+        <AnimatePresence>
+          {showPrivacy && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            >
+              <motion.div 
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="bento-card w-full max-w-lg bg-brand-card"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-bold flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-brand-blue" />
+                    Reglas de Privacidad y Uso
+                  </h2>
+                  <button onClick={() => setShowPrivacy(false)} className="text-brand-cream/50 hover:text-white">✕</button>
+                </div>
+                
+                <div className="space-y-4 text-xs text-brand-cream/70 leading-relaxed max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="p-4 bg-brand-dark/50 rounded-xl border border-brand-border">
+                    <h3 className="text-brand-orange font-bold uppercase tracking-widest mb-2 text-[10px]">1. Manejo de API Keys</h3>
+                    <p>Tu API Key se almacena localmente en tu navegador (localStorage). Nunca se envía a nuestros servidores. Las solicitudes a Gemini se realizan directamente desde tu cliente si así está configurado.</p>
+                  </div>
+                  
+                  <div className="p-4 bg-brand-dark/50 rounded-xl border border-brand-border">
+                    <h3 className="text-brand-orange font-bold uppercase tracking-widest mb-2 text-[10px]">2. Datos del Producto</h3>
+                    <p>El texto que pegas en el campo de "Detalles del Producto" se procesa únicamente para generar el anuncio. No almacenamos, vendemos ni perfilamos tu información comercial de forma permanente fuera de tu sesión local.</p>
+                  </div>
+
+                  <div className="p-4 bg-brand-dark/50 rounded-xl border border-brand-border">
+                    <h3 className="text-brand-orange font-bold uppercase tracking-widest mb-2 text-[10px]">3. Historial Local</h3>
+                    <p>Tu historial de generaciones reside exclusivamente en tu dispositivo. Al limpiar la caché o datos del navegador, esta información se perderá permanentemente.</p>
+                  </div>
+
+                  <div className="p-4 bg-brand-dark/50 rounded-xl border border-brand-border">
+                    <h3 className="text-brand-orange font-bold uppercase tracking-widest mb-2 text-[10px]">4. Uso Ético</h3>
+                    <p>Este sistema utiliza psicología de ventas avanzada. El usuario es responsable de asegurar que las promesas y ofertas generadas coincidan con la realidad de su producto.</p>
+                  </div>
+
+                  <div className="p-4 bg-brand-blue/5 rounded-xl border border-brand-blue/20">
+                    <p className="text-brand-blue font-medium">Nota: Al usar tus propios tokens, estás sujeto a los términos de servicio de Google Gemini y su política de privacidad de datos empresariales.</p>
+                  </div>
+                </div>
+                
+                <div className="mt-8">
+                  <button 
+                    onClick={() => setShowPrivacy(false)}
+                    className="w-full py-3 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl font-bold transition-all"
+                  >
+                    Entendido
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Results Area */}
         <AnimatePresence>
           {result && (
@@ -469,14 +573,26 @@ No añadas texto fuera. Emojis moderados.`;
                 
                 <div className="relative flex items-center bg-brand-blue rounded-xl overflow-hidden shadow-lg shadow-brand-blue/20">
                   <AnimatePresence>
-                    {copyFeedback && (
+                    {feedback && (
                       <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-brand-orange text-white text-[10px] rounded-full whitespace-nowrap shadow-xl"
+                        initial={{ opacity: 0, y: 15, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                        className={`absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full whitespace-nowrap shadow-2xl flex items-center gap-2 border border-white/10 ${
+                          feedback.type === 'success' ? 'bg-brand-orange text-white' : 'bg-red-500 text-white'
+                        }`}
                       >
-                        {copyFeedback}
+                        {feedback.type === 'success' && (
+                          <motion.div 
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+                            className="flex-shrink-0 w-4 h-4 bg-white rounded-full flex items-center justify-center"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-brand-orange" />
+                          </motion.div>
+                        )}
+                        <span className="font-bold tracking-wide uppercase text-[10px]">{feedback.text}</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -548,6 +664,9 @@ No añadas texto fuera. Emojis moderados.`;
       <footer className="mt-auto text-center py-8">
         <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-brand-cream/20">
           Powered by Gemini Strategic Psychology Engine
+        </p>
+        <p className="text-[9px] text-brand-cream/30 mt-2">
+          El contenido generado por IA puede contener fallos o errores; verifique siempre la información antes de publicarla o usarla.
         </p>
       </footer>
     </div>
